@@ -1,11 +1,15 @@
 package main
 
 import (
+    "encoding/json"
     "errors"
     "fmt"
+    "io"
     "log"
     "os"
     "os/signal"
+    "os/user"
+    "path/filepath"
     "time"
     "strings"
 
@@ -15,7 +19,7 @@ import (
 
 
 const NOTIFY_METHOD = "org.freedesktop.Notifications.Notify"
-const APP = "MQTT-Dbus-Notify"
+const APPNAME = "mqtt-dbus-notify"
 const DESTINATION = "org.freedesktop.Notifications"
 const OBJ_PATH = dbus.ObjectPath("/org/freedesktop/Notifications")
 
@@ -30,8 +34,12 @@ func main() {
     s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Interrupt)
 
-    config := readConfig()
-    err := connectDBus(config)
+    config, err := readConfig()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    err = connectDBus(config)
     if err != nil {
         log.Fatal(err)
     }
@@ -53,6 +61,7 @@ func main() {
     _ = <- s
 
     // cleanup, then exit
+    unsubscribe(config)
     disconnectMQTT()
     disconnectDBus()
 }
@@ -81,7 +90,7 @@ func disconnectDBus() {
 
 
 func notify(title string, body string) error {
-    call := notifications.Call(NOTIFY_METHOD, 0, APP, uint32(0), "",
+    call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0), "",
         title, body,
         []string{}, map[string]dbus.Variant{}, int32(7000))
     if call.Err != nil {
@@ -144,6 +153,16 @@ func subscribe(config *Config) error {
 }
 
 
+func unsubscribe(config *Config) {
+    if mqttClient != nil {
+        for _, topic := range(config.Topics) {
+            log.Printf("Unsubscribe from %s", topic)
+            mqttClient.Unsubscribe(topic)
+        }
+    }
+}
+
+
 type Config struct {
     Host string
     Port int
@@ -154,16 +173,40 @@ type Config struct {
 }
 
 
-func readConfig() *Config{
+func readConfig() (*Config, error) {
+    // initialize with defaults
     config := &Config{
-        Host: "box",
+        Host: "localhost",
         Port: 1883,
         User: "",
         Pass: "",
         Timeout: 5,
-        Topics: []string{"/test/notify",},
+        Topics: []string{"test/notify",},
     }
     // TODO read from JSON, map to config
+    currentUser, err := user.Current()
+    if err != nil {
+        return config, err
+    }
 
-    return config
+    path := filepath.Join(currentUser.HomeDir, ".config", APPNAME + ".json")
+    f, err := os.Open(path)
+    if os.IsNotExist(err) {
+        log.Printf("No config file found at %v, using defaults", path)
+        return config, nil
+    } else if err != nil {
+        return config, err
+    }
+    defer f.Close()
+
+    decoder := json.NewDecoder(f)
+    for {
+        if err := decoder.Decode(&config); err == io.EOF {
+            break
+        } else if err != nil {
+            return config, err
+        }
+    }
+
+    return config, nil
 }
