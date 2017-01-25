@@ -97,8 +97,11 @@ func disconnectDBus() {
 }
 
 
-func notify(title string, body string) error {
+func notify(scfg *Subscription, title string, body string) error {
     icon := config.Icon
+    log.Println(scfg)
+    log.Println(scfg.Topic)
+    log.Println(scfg.Icon)
     call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0), icon,
         title, body,
         []string{}, map[string]dbus.Variant{}, int32(7000))
@@ -144,18 +147,28 @@ func disconnectMQTT() {
 
 
 func subscribe() error {
+    if len(config.Subscriptions) == 0 {
+        log.Println("WARNING: No subscriptions configured.")
+        return nil
+    }
+
     timeout := time.Duration(config.Timeout) * time.Second
     qos := byte(0)
 
-    for _, topic := range(config.Topics) {
-        log.Printf("Subscribe to %s", topic)
-        t := mqttClient.Subscribe(topic, qos, func(client mqtt.Client, message mqtt.Message){
+    for _, sub := range(config.Subscriptions) {
+        if sub.Topic == "" {
+            log.Println("WARNING: Ignoring subscription without topic.")
+            continue
+        }
+        log.Printf("Subscribe to %s", sub.Topic)
+        s := sub  // local var for scope
+        t := mqttClient.Subscribe(sub.Topic, qos, func(client mqtt.Client, message mqtt.Message){
             payload := string(message.Payload())
             parts := strings.SplitN(payload, "\n", 2)
             if len(parts) == 1 {
-                notify(parts[0], "")
+                notify(s, parts[0], "")
             } else {
-                notify(parts[0], parts[1])
+                notify(s, parts[0], parts[1])
             }
         })
         if !t.WaitTimeout(timeout) {
@@ -171,9 +184,11 @@ func subscribe() error {
 
 func unsubscribe() {
     if mqttClient != nil {
-        for _, topic := range(config.Topics) {
-            log.Printf("Unsubscribe from %s", topic)
-            mqttClient.Unsubscribe(topic)
+        for _, sub := range(config.Subscriptions) {
+            if sub.Topic != "" {
+                log.Printf("Unsubscribe from %s", sub.Topic)
+                mqttClient.Unsubscribe(sub.Topic)
+            }
         }
     }
 }
@@ -183,13 +198,22 @@ func unsubscribe() {
 
 
 type Config struct {
-    Host    string      `json:"host"`
-    Port    int         `json:"port"`
-    User    string      `json:"user"`
-    Pass    string      `json:"pass"`
-    Timeout int         `json:"timeout"`
-    Icon    string      `json:"icon"`
-    Topics  []string    `json:"topics"`
+    Host            string              `json:"host"`
+    Port            int                 `json:"port"`
+    User            string              `json:"user"`
+    Pass            string              `json:"pass"`
+    Timeout         int                 `json:"timeout"`
+    Icon            string              `json:"icon"`
+    Subscriptions   []*Subscription    `json:"subscriptions"`
+}
+
+
+type Subscription struct {
+    Topic   string  `json:"topic"`
+    Title   string  `json:"title"`
+    Body    string  `json:"body"`
+    Icon    string  `json:"icon"`
+
 }
 
 
@@ -202,7 +226,7 @@ func loadConfig() error {
         Pass: "",
         Timeout: 5,
         Icon: "dialog-information",
-        Topics: []string{},
+        Subscriptions: []*Subscription{},
     }
 
     currentUser, err := user.Current()
