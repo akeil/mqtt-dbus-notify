@@ -1,6 +1,7 @@
 package main
 
 import (
+    "bytes"
     "encoding/json"
     "errors"
     "fmt"
@@ -10,6 +11,7 @@ import (
     "os/signal"
     "os/user"
     "path/filepath"
+    "text/template"
     "time"
     "strings"
 
@@ -203,7 +205,6 @@ type Subscription struct {
     Title   string  `json:"title"`
     Body    string  `json:"body"`
     Icon    string  `json:"icon"`
-
 }
 
 
@@ -222,7 +223,13 @@ func (s *Subscription) createTitleAndBody(text string) (string, string) {
     body := ""
 
     if s.Title != "" || s.Body != "" {
-        // template
+        var err0, err1 error
+        body, err0 = s.template("Body", text)
+        title, err1 = s.template("Title", text)
+        if err0 != nil || err1 != nil {
+            log.Println("ERROR: Failed to parse template")
+        }
+
     } else {
         parts := strings.SplitN(text, "\n", 2)
         title = parts[0]
@@ -232,6 +239,32 @@ func (s *Subscription) createTitleAndBody(text string) (string, string) {
     }
 
     return title, body
+}
+
+
+func (s *Subscription) template(which string, text string) (string, error) {
+    var templateString string
+    if which == "Title" {
+        templateString = s.Title
+    } else if which == "Body" {
+        templateString = s.Body
+    } else {
+        templateString = ""
+    }
+
+    t := template.New(which)
+    _, err := t.Parse(templateString)
+    if err != nil {
+        return "", err
+    }
+
+    buf := new(bytes.Buffer)
+    err = t.Execute(buf, text)
+    if err != nil {
+        return "", err
+    }
+
+    return buf.String(), nil
 }
 
 func loadConfig() error {
