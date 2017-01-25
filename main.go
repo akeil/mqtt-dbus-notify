@@ -98,7 +98,8 @@ func disconnectDBus() {
 
 
 func notify(title string, body string) error {
-    call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0), "",
+    icon := config.Icon
+    call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0), icon,
         title, body,
         []string{}, map[string]dbus.Variant{}, int32(7000))
     if call.Err != nil {
