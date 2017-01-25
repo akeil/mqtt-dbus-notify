@@ -71,6 +71,9 @@ func run() error {
 }
 
 
+// DBUS -----------------------------------------------------------------------
+
+
 func connectDBus(config *Config) error {
     log.Println("Connect to DBus...")
     conn, err := dbus.SessionBus()
@@ -104,12 +107,19 @@ func notify(title string, body string) error {
 }
 
 
+// MQTT -----------------------------------------------------------------------
+
+
 func connectMQTT(config *Config) error {
     log.Println("Connect to MQTT ...")
     uri := fmt.Sprintf("tcp://%v:%v", config.Host, config.Port)
     opts := mqtt.NewClientOptions()
     opts.AddBroker(uri)
-    //opts.SetClientID("mqtt-dbus-notify-HOSTNAME")
+
+    hostname, err := os.Hostname()
+    if err == nil {
+        opts.SetClientID(APPNAME + "-" + hostname)
+    }
     mqttClient = mqtt.NewClient(opts)  // global
 
     timeout := time.Duration(config.Timeout) * time.Second
@@ -167,6 +177,9 @@ func unsubscribe(config *Config) {
 }
 
 
+// Config ---------------------------------------------------------------------
+
+
 type Config struct {
     Host    string      `json:"host"`
     Port    int         `json:"port"`
@@ -187,7 +200,7 @@ func readConfig() (*Config, error) {
         Timeout: 5,
         Topics: []string{},
     }
-    // TODO read from JSON, map to config
+
     currentUser, err := user.Current()
     if err != nil {
         return config, err
