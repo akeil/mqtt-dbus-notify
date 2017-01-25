@@ -168,12 +168,12 @@ func unsubscribe(config *Config) {
 
 
 type Config struct {
-    Host string
-    Port int
-    User string
-    Pass string
-    Timeout int
-    Topics []string
+    Host    string      `json:"host"`
+    Port    int         `json:"port"`
+    User    string      `json:"user"`
+    Pass    string      `json:"pass"`
+    Timeout int         `json:"timeout"`
+    Topics  []string    `json:"topics"`
 }
 
 
@@ -185,7 +185,7 @@ func readConfig() (*Config, error) {
         User: "",
         Pass: "",
         Timeout: 5,
-        Topics: []string{"test/notify",},
+        Topics: []string{},
     }
     // TODO read from JSON, map to config
     currentUser, err := user.Current()
