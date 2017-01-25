@@ -24,6 +24,7 @@ const DESTINATION = "org.freedesktop.Notifications"
 const OBJ_PATH = dbus.ObjectPath("/org/freedesktop/Notifications")
 
 
+var config *Config
 var dbusConn *dbus.Conn
 var notifications dbus.BusObject
 var mqttClient mqtt.Client
@@ -42,28 +43,28 @@ func run() error {
     s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Interrupt)
 
-    config, err := readConfig()
+    err := loadConfig()
     if err != nil {
         return err
     }
 
-    err = connectDBus(config)
+    err = connectDBus()
     if err != nil {
         return err
     }
     defer disconnectDBus()
 
-    err = connectMQTT(config)
+    err = connectMQTT()
     if err != nil {
         return err
     }
     defer disconnectMQTT()
 
-    err = subscribe(config)
+    err = subscribe()
     if err != nil {
         return err
     }
-    defer unsubscribe(config)
+    defer unsubscribe()
 
     // blocks until SIGINT
     _ = <- s
@@ -74,7 +75,7 @@ func run() error {
 // DBUS -----------------------------------------------------------------------
 
 
-func connectDBus(config *Config) error {
+func connectDBus() error {
     log.Println("Connect to DBus...")
     conn, err := dbus.SessionBus()
     if err != nil {
@@ -110,7 +111,7 @@ func notify(title string, body string) error {
 // MQTT -----------------------------------------------------------------------
 
 
-func connectMQTT(config *Config) error {
+func connectMQTT() error {
     log.Println("Connect to MQTT ...")
     uri := fmt.Sprintf("tcp://%v:%v", config.Host, config.Port)
     opts := mqtt.NewClientOptions()
@@ -141,7 +142,7 @@ func disconnectMQTT() {
 }
 
 
-func subscribe(config *Config) error {
+func subscribe() error {
     timeout := time.Duration(config.Timeout) * time.Second
     qos := byte(0)
 
@@ -167,7 +168,7 @@ func subscribe(config *Config) error {
 }
 
 
-func unsubscribe(config *Config) {
+func unsubscribe() {
     if mqttClient != nil {
         for _, topic := range(config.Topics) {
             log.Printf("Unsubscribe from %s", topic)
@@ -186,33 +187,35 @@ type Config struct {
     User    string      `json:"user"`
     Pass    string      `json:"pass"`
     Timeout int         `json:"timeout"`
+    Icon    string      `json:"icon"`
     Topics  []string    `json:"topics"`
 }
 
 
-func readConfig() (*Config, error) {
+func loadConfig() error {
     // initialize with defaults
-    config := &Config{
+    config = &Config{
         Host: "localhost",
         Port: 1883,
         User: "",
         Pass: "",
         Timeout: 5,
+        Icon: "dialog-information",
         Topics: []string{},
     }
 
     currentUser, err := user.Current()
     if err != nil {
-        return config, err
+        return err
     }
 
     path := filepath.Join(currentUser.HomeDir, ".config", APPNAME + ".json")
     f, err := os.Open(path)
     if os.IsNotExist(err) {
         log.Printf("No config file found at %v, using defaults", path)
-        return config, nil
+        return nil
     } else if err != nil {
-        return config, err
+        return err
     }
     defer f.Close()
 
@@ -221,9 +224,9 @@ func readConfig() (*Config, error) {
         if err := decoder.Decode(&config); err == io.EOF {
             break
         } else if err != nil {
-            return config, err
+            return err
         }
     }
 
-    return config, nil
+    return nil
 }
