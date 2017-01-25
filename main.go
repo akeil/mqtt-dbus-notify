@@ -97,13 +97,9 @@ func disconnectDBus() {
 }
 
 
-func notify(scfg *Subscription, title string, body string) error {
-    icon := config.Icon
-    log.Println(scfg)
-    log.Println(scfg.Topic)
-    log.Println(scfg.Icon)
-    call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0), icon,
-        title, body,
+func notify(title, body, icon string) error {
+    call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0),
+        icon, title, body,
         []string{}, map[string]dbus.Variant{}, int32(7000))
     if call.Err != nil {
         return call.Err
@@ -163,13 +159,7 @@ func subscribe() error {
         log.Printf("Subscribe to %s", sub.Topic)
         s := sub  // local var for scope
         t := mqttClient.Subscribe(sub.Topic, qos, func(client mqtt.Client, message mqtt.Message){
-            payload := string(message.Payload())
-            parts := strings.SplitN(payload, "\n", 2)
-            if len(parts) == 1 {
-                notify(s, parts[0], "")
-            } else {
-                notify(s, parts[0], parts[1])
-            }
+            s.Trigger(message.Payload())
         })
         if !t.WaitTimeout(timeout) {
             return errors.New("MQTT Subscribe timed out")
@@ -216,6 +206,33 @@ type Subscription struct {
 
 }
 
+
+func (s *Subscription) Trigger(payload []byte) {
+    text := string(payload)
+    title, body := s.createTitleAndBody(text)
+    icon := config.Icon
+    if s.Icon != "" {
+        icon = s.Icon
+    }
+    notify(title, body, icon)
+}
+
+func (s *Subscription) createTitleAndBody(text string) (string, string) {
+    title := ""
+    body := ""
+
+    if s.Title != "" || s.Body != "" {
+        // template
+    } else {
+        parts := strings.SplitN(text, "\n", 2)
+        title = parts[0]
+        if len(parts) > 1 {
+            body = parts[1]
+        }
+    }
+
+    return title, body
+}
 
 func loadConfig() error {
     // initialize with defaults
