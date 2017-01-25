@@ -30,40 +30,44 @@ var mqttClient mqtt.Client
 
 
 func main() {
+    err := run()
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+
+func run() error {
     // setup channel to receive SIGINT (ctrl+c)
     s := make(chan os.Signal, 1)
 	signal.Notify(s, os.Interrupt)
 
     config, err := readConfig()
     if err != nil {
-        log.Fatal(err)
+        return err
     }
 
     err = connectDBus(config)
     if err != nil {
-        log.Fatal(err)
+        return err
     }
+    defer disconnectDBus()
 
     err = connectMQTT(config)
     if err != nil {
-        disconnectDBus()
-        log.Fatal(err)
+        return err
     }
+    defer disconnectMQTT()
 
     err = subscribe(config)
     if err != nil {
-        disconnectMQTT()
-        disconnectDBus()
-        log.Fatal(err)
+        return err
     }
+    defer unsubscribe(config)
 
-    // blocks, wait for SIGINT
+    // blocks until SIGINT
     _ = <- s
-
-    // cleanup, then exit
-    unsubscribe(config)
-    disconnectMQTT()
-    disconnectDBus()
+    return nil
 }
 
 
