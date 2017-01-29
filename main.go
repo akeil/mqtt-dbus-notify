@@ -196,8 +196,9 @@ func (s *Subscription) Trigger(payload []byte) {
 func (s *Subscription) createTitleAndBody(text string) (string, string) {
 	title := ""
 	body := ""
+	useTemplates := s.Title != "" || s.Body != ""
 
-	if s.Title != "" || s.Body != "" {
+	if useTemplates {
 		var err0, err1 error
 		body, err0 = s.template("Body", text)
 		title, err1 = s.template("Title", text)
@@ -223,7 +224,7 @@ func (s *Subscription) template(which string, text string) (string, error) {
 	} else if which == "Body" {
 		templateString = s.Body
 	} else {
-		templateString = ""
+		return "", errors.New("Invalid template name")
 	}
 
 	t := template.New(which)
