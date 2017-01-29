@@ -174,17 +174,7 @@ func unsubscribe() {
 	}
 }
 
-// Config ---------------------------------------------------------------------
-
-type Config struct {
-	Host          string          `json:"host"`
-	Port          int             `json:"port"`
-	User          string          `json:"user"`
-	Pass          string          `json:"pass"`
-	Timeout       int             `json:"timeout"`
-	Icon          string          `json:"icon"`
-	Subscriptions []*Subscription `json:"subscriptions"`
-}
+// Subscriptions --------------------------------------------------------------
 
 type Subscription struct {
 	Topic string `json:"topic"`
@@ -249,6 +239,18 @@ func (s *Subscription) template(which string, text string) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+// Config ---------------------------------------------------------------------
+
+type Config struct {
+	Host          string          `json:"host"`
+	Port          int             `json:"port"`
+	User          string          `json:"user"`
+	Pass          string          `json:"pass"`
+	Timeout       int             `json:"timeout"`
+	Icon          string          `json:"icon"`
+	Subscriptions []*Subscription `json:"subscriptions"`
 }
 
 func loadConfig() error {
