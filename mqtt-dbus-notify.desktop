@@ -2,7 +2,6 @@
 Name=MQTT-DBus-Notify
 Comment=Desktop notifications from MQTT messages
 NoDisplay=false
-TryExec=/home/akeil/.local/bin/mqtt-dbus-notify
-Exec=/home/akeil/.local/bin/mqtt-dbus-notify
+Exec=$GOHOME/bin/mqtt-dbus-notify
 Type=Application
 Categories=Accessoires;
