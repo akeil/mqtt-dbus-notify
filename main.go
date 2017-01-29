@@ -28,6 +28,7 @@ var config *Config
 var dbusConn *dbus.Conn
 var notifications dbus.BusObject
 var mqttClient mqtt.Client
+var subscribed = make([]string, 0)
 
 func main() {
 	err := run()
@@ -157,6 +158,8 @@ func subscribe() error {
 		} else if t.Error() != nil {
 			return t.Error()
 		}
+
+		subscribed = append(subscribed, sub.Topic)
 	}
 
 	return nil
@@ -164,11 +167,9 @@ func subscribe() error {
 
 func unsubscribe() {
 	if mqttClient != nil {
-		for _, sub := range config.Subscriptions {
-			if sub.Topic != "" {
-				log.Printf("Unsubscribe from %s", sub.Topic)
-				mqttClient.Unsubscribe(sub.Topic)
-			}
+		for _, topic := range subscribed {
+			log.Printf("Unsubscribe from %s", topic)
+			mqttClient.Unsubscribe(topic)
 		}
 	}
 }
