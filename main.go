@@ -15,7 +15,7 @@ import (
 	"text/template"
 	"time"
 
-	dbus "anonscm.debian.org/git/pkg-go/packages/golang-dbus.git"
+	dbus "github.com/godbus/dbus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 

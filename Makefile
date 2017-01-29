@@ -4,5 +4,5 @@ build:
 	go install $(MAIN)
 
 deps:
-	go get anonscm.debian.org/git/pkg-go/packages/golang-dbus.git
+	go get github.com/godbus/dbus
 	go get github.com/eclipse/paho.mqtt.golang
