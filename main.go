@@ -72,6 +72,8 @@ func run() error {
 
 // DBUS -----------------------------------------------------------------------
 
+// Connect to the D-Bus session bus
+// and initialize a proxy object for the notifications service.
 func connectDBus() error {
 	log.Println("Connect to DBus...")
 	conn, err := dbus.SessionBus()
@@ -85,6 +87,7 @@ func connectDBus() error {
 	return nil
 }
 
+// Disconnect from D-Bus session bus.
 func disconnectDBus() {
 	if dbusConn != nil {
 		dbusConn.Close()
@@ -92,6 +95,7 @@ func disconnectDBus() {
 	}
 }
 
+// Send a notifcation through the D-Bus notifications service.
 func notify(title, body, icon string) error {
 	call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0),
 		icon, title, body,
@@ -104,6 +108,7 @@ func notify(title, body, icon string) error {
 
 // MQTT -----------------------------------------------------------------------
 
+// Connect to the MQTT broker from config
 func connectMQTT() error {
 	log.Println("Connect to MQTT ...")
 	uri := fmt.Sprintf("tcp://%v:%v", config.Host, config.Port)
@@ -124,6 +129,7 @@ func connectMQTT() error {
 	return t.Error()
 }
 
+// Disconnect from the MQTT broker
 func disconnectMQTT() {
 	if mqttClient != nil {
 		if mqttClient.IsConnected() {
@@ -133,6 +139,8 @@ func disconnectMQTT() {
 	}
 }
 
+// Subscribe to all configured topics.
+// Stores successful subscriptions in global `subscriptions` variable.
 func subscribe() error {
 	if len(config.Subscriptions) == 0 {
 		log.Println("WARNING: No subscriptions configured.")
@@ -165,6 +173,7 @@ func subscribe() error {
 	return nil
 }
 
+// Unsubscribe from all previously subscribed topics.
 func unsubscribe() {
 	if mqttClient != nil {
 		for _, topic := range subscribed {
@@ -176,6 +185,7 @@ func unsubscribe() {
 
 // Subscriptions --------------------------------------------------------------
 
+// Configuration for a single MQTT subscription.
 type Subscription struct {
 	Topic string `json:"topic"`
 	Title string `json:"title"`
@@ -183,6 +193,7 @@ type Subscription struct {
 	Icon  string `json:"icon"`
 }
 
+// Called for each incoming MQTT message that matches this subscription.
 func (s *Subscription) Trigger(payload []byte) {
 	text := string(payload)
 	title, body := s.createTitleAndBody(text)
@@ -193,6 +204,9 @@ func (s *Subscription) Trigger(payload []byte) {
 	notify(title, body, icon)
 }
 
+// Create title and body for a notification.
+// Either from default (title=first line, body=subsequent lines)
+// or by filling the respective templates from configuration.
 func (s *Subscription) createTitleAndBody(text string) (string, string) {
 	title := ""
 	body := ""
@@ -217,6 +231,7 @@ func (s *Subscription) createTitleAndBody(text string) (string, string) {
 	return title, body
 }
 
+// Fill the given template - "Title" or "Body" with the given text.
 func (s *Subscription) template(which string, text string) (string, error) {
 	var templateString string
 	if which == "Title" {
@@ -244,6 +259,7 @@ func (s *Subscription) template(which string, text string) (string, error) {
 
 // Config ---------------------------------------------------------------------
 
+// Configuration options
 type Config struct {
 	Host          string          `json:"host"`
 	Port          int             `json:"port"`
@@ -254,6 +270,7 @@ type Config struct {
 	Subscriptions []*Subscription `json:"subscriptions"`
 }
 
+// Read configuration from the default path and set global `config` variable.
 func loadConfig() error {
 	// initialize with defaults
 	config = &Config{
