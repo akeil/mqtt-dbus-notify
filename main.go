@@ -119,6 +119,7 @@ func connectMQTT() error {
 	if err == nil {
 		opts.SetClientID(APPNAME + "-" + hostname)
 	}
+
 	mqttClient = mqtt.NewClient(opts) // global
 
 	timeout := time.Duration(config.Timeout) * time.Second
@@ -197,9 +198,9 @@ type Subscription struct {
 func (s *Subscription) Trigger(payload []byte) {
 	text := string(payload)
 	title, body := s.createTitleAndBody(text)
-	icon := config.Icon
-	if s.Icon != "" {
-		icon = s.Icon
+	icon := s.Icon
+	if icon == "" {
+		icon = config.Icon
 	}
 	notify(title, body, icon)
 }
@@ -288,7 +289,7 @@ func loadConfig() error {
 		return err
 	}
 
-	path := filepath.Join(currentUser.HomeDir, ".config", APPNAME+".json")
+	path := filepath.Join(currentUser.HomeDir, ".config", APPNAME + ".json")
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		log.Printf("No config file found at %v, using defaults", path)
