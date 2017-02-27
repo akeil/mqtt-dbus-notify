@@ -115,6 +115,10 @@ func connectMQTT() error {
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(uri)
 
+	opts.SetConnectionLostHandler(onMQTTConnectionLost)
+	opts.SetOnConnectHandler(onMQTTConnected)
+	opts.SetCleanSession(false)  // don't lose subscriptions on reconnect
+
 	hostname, err := os.Hostname()
 	if err == nil {
 		opts.SetClientID(APPNAME + "-" + hostname)
@@ -128,6 +132,14 @@ func connectMQTT() error {
 		return errors.New("MQTT Connect timed out")
 	}
 	return t.Error()
+}
+
+func onMQTTConnectionLost(client mqtt.Client, err error) {
+	log.Println("MQTT connection lost")
+}
+
+func onMQTTConnected(client mqtt.Client) {
+	log.Println("MQTT connected")
 }
 
 // Disconnect from the MQTT broker
