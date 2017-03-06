@@ -109,9 +109,21 @@ func notify(title, body, icon string) error {
 // Connect to the MQTT broker from config
 func connectMQTT() error {
 	log.Println("Connect to MQTT ...")
-	uri := fmt.Sprintf("tcp://%v:%v", config.Host, config.Port)
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(uri)
+
+	var scheme string
+	if config.Secure {
+		scheme = "tcps"
+	} else {
+		scheme = "tcp"
+	}
+	url := fmt.Sprintf("%v://%v:%v", scheme, config.Host, config.Port)
+	opts.AddBroker(url)
+
+	if config.Username != "" {
+		opts.SetUsername(config.Username)
+		opts.SetPassword(config.Password)
+	}
 
 	opts.SetConnectionLostHandler(onMQTTConnectionLost)
 	opts.SetOnConnectHandler(onMQTTConnected)
@@ -274,8 +286,9 @@ func (s *Subscription) template(which string, text string) (string, error) {
 type Config struct {
 	Host          string          `json:"host"`
 	Port          int             `json:"port"`
-	User          string          `json:"user"`
-	Pass          string          `json:"pass"`
+	Username      string          `json:"username"`
+	Password      string          `json:"password"`
+	Secure        bool            `json:"secure"`
 	Timeout       int             `json:"timeout"`
 	Icon          string          `json:"icon"`
 	Subscriptions []*Subscription `json:"subscriptions"`
@@ -287,8 +300,9 @@ func loadConfig() error {
 	config = &Config{
 		Host:          "localhost",
 		Port:          1883,
-		User:          "",
-		Pass:          "",
+		Username:      "",
+		Password:      "",
+		Secure:        false,
 		Timeout:       5,
 		Icon:          "dialog-information",
 		Subscriptions: []*Subscription{},

@@ -37,8 +37,9 @@ A sample configuration looks like this:
 {
     "host": "localhost",
     "port": 1883,
-    "user": "",
-    "pass": "",
+    "username": "",
+    "password": "",
+    "secure": false,
     "timeout": 5,
     "icon": "dialog-information",
     "subscriptions": [
@@ -58,6 +59,8 @@ A sample configuration looks like this:
 Aside from the `subscriptions`, these are also the default values.
 If the MQTT broker is running on the same computer on the default port (`1883`)
 and without authentication, no configuration is required.
+
+The `secure` option uses a TLS encrypted connection, usually over port `8883`.
 
 
 ### Subscriptions
