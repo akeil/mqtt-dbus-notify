@@ -181,7 +181,7 @@ func subscribe() error {
 		log.Printf("Subscribe to %s", sub.Topic)
 		s := sub // local var for scope
 		t := mqttClient.Subscribe(sub.Topic, qos, func(c mqtt.Client, m mqtt.Message) {
-			s.Trigger(m.Topic(), m.Payload())
+			s.Trigger(m.Topic(), string(m.Payload()))
 		})
 
 		if !t.WaitTimeout(timeout) {
@@ -217,9 +217,8 @@ type Subscription struct {
 }
 
 // Called for each incoming MQTT message that matches this subscription.
-func (s *Subscription) Trigger(topic string, payload []byte) {
-	text := string(payload)
-	title, body := s.createTitleAndBody(topic, text)
+func (s *Subscription) Trigger(topic, payload string) {
+	title, body := s.createTitleAndBody(topic, payload)
 	icon := s.Icon
 	if icon == "" {
 		icon = config.Icon
@@ -230,14 +229,14 @@ func (s *Subscription) Trigger(topic string, payload []byte) {
 // Create title and body for a notification.
 // Either from default (title=first line, body=subsequent lines)
 // or by filling the respective templates from configuration.
-func (s *Subscription) createTitleAndBody(topic, text string) (string, string) {
+func (s *Subscription) createTitleAndBody(topic, payload string) (string, string) {
 	title := ""
 	body := ""
 	useTemplates := s.Title != "" || s.Body != ""
 
 	if useTemplates {
 		var err0, err1 error
-		ctx := NewTemplateContext(topic, text)
+		ctx := NewTemplateContext(topic, payload)
 		body, err0 = s.template(ctx, "Body")
 		title, err1 = s.template(ctx, "Title")
 		if err0 != nil || err1 != nil {
@@ -245,7 +244,7 @@ func (s *Subscription) createTitleAndBody(topic, text string) (string, string) {
 		}
 
 	} else {
-		parts := strings.SplitN(text, "\n", 2)
+		parts := strings.SplitN(payload, "\n", 2)
 		title = parts[0]
 		if len(parts) > 1 {
 			body = parts[1]
