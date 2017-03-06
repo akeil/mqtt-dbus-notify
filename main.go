@@ -208,17 +208,26 @@ func unsubscribe() {
 
 // Subscriptions --------------------------------------------------------------
 
+const tplTitle = "title"
+const tplBody = "body"
+
 // Configuration for a single MQTT subscription.
 type Subscription struct {
-	Topic string `json:"topic"`
-	Title string `json:"title"`
-	Body  string `json:"body"`
-	Icon  string `json:"icon"`
+	Topic           string                        `json:"topic"`
+	Title           string                        `json:"title"`
+	Body            string                        `json:"body"`
+	Icon            string                        `json:"icon"`
+	cachedTemplates map[string]*template.Template `json:"-"`
 }
 
 // Called for each incoming MQTT message that matches this subscription.
 func (s *Subscription) Trigger(topic, payload string) {
-	title, body := s.createTitleAndBody(topic, payload)
+	title, body, err := s.createTitleAndBody(topic, payload)
+	if err != nil {
+		log.Printf("ERROR: Failed to create notification: %v", err)
+		return
+	}
+
 	icon := s.Icon
 	if icon == "" {
 		icon = config.Icon
@@ -229,20 +238,13 @@ func (s *Subscription) Trigger(topic, payload string) {
 // Create title and body for a notification.
 // Either from default (title=first line, body=subsequent lines)
 // or by filling the respective templates from configuration.
-func (s *Subscription) createTitleAndBody(topic, payload string) (string, string) {
+func (s *Subscription) createTitleAndBody(topic, payload string) (string, string, error) {
 	title := ""
 	body := ""
 	useTemplates := s.Title != "" || s.Body != ""
 
 	if useTemplates {
-		var err0, err1 error
-		ctx := NewTemplateContext(topic, payload)
-		body, err0 = s.template(ctx, "Body")
-		title, err1 = s.template(ctx, "Title")
-		if err0 != nil || err1 != nil {
-			log.Println("ERROR: Failed to parse template")
-		}
-
+		return s.fillTemplates(topic, payload)
 	} else {
 		parts := strings.SplitN(payload, "\n", 2)
 		title = parts[0]
@@ -251,33 +253,59 @@ func (s *Subscription) createTitleAndBody(topic, payload string) (string, string
 		}
 	}
 
-	return title, body
+	return title, body, nil
 }
 
-// Fill the given template - "Title" or "Body" with the given text.
-func (s *Subscription) template(ctx TemplateContext, which string) (string, error) {
-	var templateString string
-	if which == "Title" {
-		templateString = s.Title
-	} else if which == "Body" {
-		templateString = s.Body
-	} else {
-		return "", errors.New("Invalid template name")
+// Prepare (parse) templates if not already cached.
+func (s *Subscription) prepareTemplates() error {
+	if s.cachedTemplates != nil {
+		return nil
 	}
 
-	t := template.New(which)
-	_, err := t.Parse(templateString)
+	var err error
+	templates := []string{tplTitle, tplBody}
+	s.cachedTemplates = make(map[string]*template.Template, len(templates))
+
+	for _, name := range templates {
+		tpl := template.New(name)
+		var raw string
+		if name == tplTitle {
+			raw = s.Title
+		} else {
+			raw = s.Body
+		}
+		_, err = tpl.Parse(raw)
+		if err != nil {
+			return err
+		}
+		s.cachedTemplates[name] = tpl
+	}
+	return nil
+}
+
+func (s *Subscription) fillTemplates(topic, payload string) (string, string, error) {
+	err := s.prepareTemplates()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	buf := new(bytes.Buffer)
-	err = t.Execute(buf, &ctx)
-	if err != nil {
-		return "", err
+	var title, body string
+	ctx := NewTemplateContext(topic, payload)
+
+	for name, tpl := range s.cachedTemplates {
+		buf := new(bytes.Buffer)
+		err = tpl.Execute(buf, &ctx)
+		if err != nil {
+			return "", "", err
+		}
+		if name == tplTitle {
+			title = buf.String()
+		} else {
+			body = buf.String()
+		}
 	}
 
-	return buf.String(), nil
+	return title, body, nil
 }
 
 type TemplateContext struct {
