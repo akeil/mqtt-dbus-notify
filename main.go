@@ -181,7 +181,7 @@ func subscribe() error {
 		log.Printf("Subscribe to %s", sub.Topic)
 		s := sub // local var for scope
 		t := mqttClient.Subscribe(sub.Topic, qos, func(c mqtt.Client, m mqtt.Message) {
-			s.Trigger(m.Payload())
+			s.Trigger(m.Topic(), m.Payload())
 		})
 
 		if !t.WaitTimeout(timeout) {
@@ -217,9 +217,9 @@ type Subscription struct {
 }
 
 // Called for each incoming MQTT message that matches this subscription.
-func (s *Subscription) Trigger(payload []byte) {
+func (s *Subscription) Trigger(topic string, payload []byte) {
 	text := string(payload)
-	title, body := s.createTitleAndBody(text)
+	title, body := s.createTitleAndBody(topic, text)
 	icon := s.Icon
 	if icon == "" {
 		icon = config.Icon
@@ -230,15 +230,16 @@ func (s *Subscription) Trigger(payload []byte) {
 // Create title and body for a notification.
 // Either from default (title=first line, body=subsequent lines)
 // or by filling the respective templates from configuration.
-func (s *Subscription) createTitleAndBody(text string) (string, string) {
+func (s *Subscription) createTitleAndBody(topic, text string) (string, string) {
 	title := ""
 	body := ""
 	useTemplates := s.Title != "" || s.Body != ""
 
 	if useTemplates {
 		var err0, err1 error
-		body, err0 = s.template("Body", text)
-		title, err1 = s.template("Title", text)
+		ctx := NewTemplateContext(topic, text)
+		body, err0 = s.template(ctx, "Body")
+		title, err1 = s.template(ctx, "Title")
 		if err0 != nil || err1 != nil {
 			log.Println("ERROR: Failed to parse template")
 		}
@@ -255,7 +256,7 @@ func (s *Subscription) createTitleAndBody(text string) (string, string) {
 }
 
 // Fill the given template - "Title" or "Body" with the given text.
-func (s *Subscription) template(which string, text string) (string, error) {
+func (s *Subscription) template(ctx TemplateContext, which string) (string, error) {
 	var templateString string
 	if which == "Title" {
 		templateString = s.Title
@@ -272,12 +273,36 @@ func (s *Subscription) template(which string, text string) (string, error) {
 	}
 
 	buf := new(bytes.Buffer)
-	err = t.Execute(buf, text)
+	err = t.Execute(buf, &ctx)
 	if err != nil {
 		return "", err
 	}
 
 	return buf.String(), nil
+}
+
+type TemplateContext struct {
+	payload string
+	parts   []string
+}
+
+func NewTemplateContext(topic, payload string) TemplateContext {
+	return TemplateContext{
+		payload: payload,
+		parts:   strings.Split(topic, "/"),
+	}
+}
+
+func (t *TemplateContext) Topic(index int) (string, error) {
+	if index < 0 || index > len(t.parts) {
+		return "", errors.New("Invalid topic index")
+	}
+
+	return t.parts[index], nil
+}
+
+func (t *TemplateContext) String() string {
+	return t.payload
 }
 
 // Config ---------------------------------------------------------------------

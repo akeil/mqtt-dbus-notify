@@ -76,9 +76,22 @@ By default, the body of the MQTT message is used as the title for the
 notification. If the message consists of multiple lines, the first line is used
 as the title and the remaining lines as the body.
 
+
+### Templates for Title and Body
 A subscription can have a customized `title` and `body`.
 These are [Go templates](https://golang.org/pkg/text/template/).
 Use `{{.}}` to refer to the MQTT message payload.
+
+Within the title and body template, the `Topic` function can be used to
+return a part of the MQTT topic.
+For example:
+```json
+    ...
+    "topic": "weather/berlin/temperature"
+    "title": "{{.Topic 2}} in {{.Topic 1}}"
+    ...
+```
+This will display "temperature in berlin" as the notification title.
 
 
 ### Icons
