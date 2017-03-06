@@ -39,8 +39,8 @@ func main() {
 
 func run() error {
 	// setup channel to receive SIGINT (ctrl+c)
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, os.Interrupt)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
 
 	err := loadConfig()
 	if err != nil {
@@ -66,7 +66,7 @@ func run() error {
 	defer unsubscribe()
 
 	// blocks until SIGINT
-	_ = <-s
+	_ = <-signals
 	return nil
 }
 
@@ -100,10 +100,8 @@ func notify(title, body, icon string) error {
 	call := notifications.Call(NOTIFY_METHOD, 0, APPNAME, uint32(0),
 		icon, title, body,
 		[]string{}, map[string]dbus.Variant{}, int32(7000))
-	if call.Err != nil {
-		return call.Err
-	}
-	return nil
+
+	return call.Err
 }
 
 // MQTT -----------------------------------------------------------------------
