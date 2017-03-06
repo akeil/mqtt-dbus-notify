@@ -115,11 +115,11 @@ func connectMQTT() error {
 
 	opts.SetConnectionLostHandler(onMQTTConnectionLost)
 	opts.SetOnConnectHandler(onMQTTConnected)
-	opts.SetCleanSession(false)  // don't lose subscriptions on reconnect
 
 	hostname, err := os.Hostname()
 	if err == nil {
 		opts.SetClientID(APPNAME + "-" + hostname)
+		opts.SetCleanSession(false)  // don't lose subscriptions on reconnect
 	}
 
 	mqttClient = mqtt.NewClient(opts) // global
