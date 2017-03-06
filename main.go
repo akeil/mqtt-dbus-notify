@@ -15,8 +15,8 @@ import (
 	"text/template"
 	"time"
 
-	dbus "github.com/godbus/dbus"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	dbus "github.com/godbus/dbus"
 )
 
 const NOTIFY_METHOD = "org.freedesktop.Notifications.Notify"
@@ -131,7 +131,7 @@ func connectMQTT() error {
 	hostname, err := os.Hostname()
 	if err == nil {
 		opts.SetClientID(APPNAME + "-" + hostname)
-		opts.SetCleanSession(false)  // don't lose subscriptions on reconnect
+		opts.SetCleanSession(false) // don't lose subscriptions on reconnect
 	}
 
 	mqttClient = mqtt.NewClient(opts) // global
@@ -313,7 +313,7 @@ func loadConfig() error {
 		return err
 	}
 
-	path := filepath.Join(currentUser.HomeDir, ".config", APPNAME + ".json")
+	path := filepath.Join(currentUser.HomeDir, ".config", APPNAME+".json")
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		log.Printf("No config file found at %v, using defaults", path)

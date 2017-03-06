@@ -8,6 +8,9 @@ build:
 install:
 	go install $(MAIN)
 
+fmt:
+	gofmt -w *.go
+
 deps:
 	go get github.com/godbus/dbus
 	go get github.com/eclipse/paho.mqtt.golang
